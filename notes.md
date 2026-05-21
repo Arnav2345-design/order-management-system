@@ -1,0 +1,11 @@
+#20-05-2026
+- Why folder structure exists — separating concerns so code stays maintainable as it grows
+- The 3-layer architecture — controller → service → repository
+- Why `app.js` and `server.js` are separate files
+- Why `.env` is never committed to Git
+- The `feat:` commit message convention
+- Why Docker exists (environment reproducibility) and what a container is
+- What Docker Compose does (orchestrates multiple containers from one file)
+- What a connection pool is and why it matters for performance
+- How to pass secrets into containers via environment variables
+- How to verify a running database from both the CLI and your app
