@@ -5,6 +5,7 @@ const cors = require('cors');
 const pool = require('./config/database');
 const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
@@ -32,6 +33,8 @@ app.get('/health', async (req, res) => {
     res.status(503).json({ status: 'error', database: 'disconnected' });
   }
 });
+
+app.use('/api/auth', authRoutes);
 
 // ── 404 handler ──────────────────────────────────────────────────
 app.use((req, res) => {
