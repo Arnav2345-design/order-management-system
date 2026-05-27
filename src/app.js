@@ -7,6 +7,7 @@ const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
+const cartRoutes = require('./routes/cartRoutes');
 
 const app = express();
 
@@ -36,7 +37,9 @@ app.get('/health', async (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes); 
+app.use('/api/products', productRoutes);
+app.use('/api/cart', cartRoutes);
+
 
 // ── 404 handler ──────────────────────────────────────────────────
 app.use((req, res) => {
