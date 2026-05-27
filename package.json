@@ -18,7 +18,8 @@
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.21.0"
+    "pg": "^8.21.0",
+    "razorpay": "^2.9.6"
   },
   "devDependencies": {
     "morgan": "^1.10.1",
