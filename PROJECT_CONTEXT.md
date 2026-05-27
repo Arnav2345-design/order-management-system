@@ -9,6 +9,10 @@
 Container name: `order_mgmt_postgres`
 User: `postgres`, Password: `postgres`, Port: `5432`
 
+## Redis
+Container name: `order_mgmt_redis`
+Host: localhost, Port: 6379
+
 ## Actual Table Schemas
 
 ### users
@@ -89,7 +93,20 @@ total_price NUMERIC(10,2) NOT NULL
 created_at  TIMESTAMP WITH TIME ZONE
 
 ### payments
--- schema exists, implementation Day 9+
+id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4()
+order_id            UUID NOT NULL REFERENCES orders(id)
+amount              NUMERIC(10,2) NOT NULL
+status              payment_status NOT NULL DEFAULT 'pending'
+method              payment_method NOT NULL
+gateway_payment_id  VARCHAR(255) UNIQUE
+gateway_order_id    VARCHAR(255)
+idempotency_key     VARCHAR(255) UNIQUE
+metadata            JSONB
+created_at          TIMESTAMP WITH TIME ZONE
+updated_at          TIMESTAMP WITH TIME ZONE
+
+payment_status enum: pending, completed, failed, refunded
+payment_method enum: razorpay, cod
 
 ## Key Variable/Column Name Decisions
 - Users: `first_name`, `last_name`, `password_hash` (NOT `name`, `password`)
@@ -100,6 +117,15 @@ created_at  TIMESTAMP WITH TIME ZONE
   map to `address_line1`, `address_line2`, `postal_code`, `is_default` in DB (snake_case)
 - Order tax rate: 18% GST
 - Order shipping cost: flat 50.00
+- Razorpay amounts in paise (multiply rupees by 100)
+- PostgreSQL error code 23505 = unique constraint violation
+
+## Caching Strategy
+- Pattern: cache-aside (lazy loading)
+- Product list TTL: 5 minutes — key pattern: products:list:{category}:{page}:{limit}
+- Single product TTL: 10 minutes — key pattern: products:single:{id}
+- Invalidation: on create/update/delete, del products:single:{id} + delPattern products:list:*
+- Redis errors never crash the app — graceful degradation to database
 
 ## API Response Shapes
 
@@ -138,22 +164,34 @@ Response: { status, data: { order: { ...order, items: [...] } } }
 Request:  { status }
 Response: { status, data: { order } }
 
+### POST /api/payments/initiate
+Request:  { orderId, method }
+Response (COD):      { status, data: { payment } }
+Response (Razorpay): { status, data: { payment, razorpayOrderId, razorpayKeyId, amount, currency } }
+
+### POST /api/payments/verify
+Request:  { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature }
+Response: { status, data: { payment } }
+
+### GET /api/payments/order/:orderId
+Response: { status, data: { payment } }
+
 ## Folder Structure
 src/
-  config/        — database.js
+  config/        — database.js, razorpay.js, redis.js
   controllers/   — authController.js, productController.js, cartController.js,
-                   addressController.js, orderController.js
+                   addressController.js, orderController.js, paymentController.js
   middleware/    — authenticate.js, authorize.js, errorHandler.js, requestLogger.js
   migrations/    — 001_create_users.sql, 002_create_addresses.sql,
                    003_create_products.sql, 004_create_cart.sql,
                    005_create_orders.sql, 006_create_payments.sql
   repositories/  — userRepository.js, productRepository.js, cartRepository.js,
-                   addressRepository.js, orderRepository.js
+                   addressRepository.js, orderRepository.js, paymentRepository.js
   routes/        — authRoutes.js, productRoutes.js, cartRoutes.js,
-                   addressRoutes.js, orderRoutes.js
+                   addressRoutes.js, orderRoutes.js, paymentRoutes.js
   services/      — authService.js, productService.js, cartService.js,
-                   addressService.js, orderService.js
-  utils/         — AppError.js
+                   addressService.js, orderService.js, paymentService.js
+  utils/         — AppError.js, cache.js
   app.js
   server.js
 
