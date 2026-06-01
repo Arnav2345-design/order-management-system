@@ -279,3 +279,37 @@ CORS_ORIGIN
 - To clear Redis: docker exec -i order_mgmt_redis redis-cli FLUSHDB
 - To run tests: npm test (uses order_management_test database)
 - NODE_ENV=test disables rate limiting and points to test database
+
+## Days 15-21 — What was added
+
+### New files
+src/config/logger.js         — winston logger, JSON in prod, coloured text in dev
+src/config/index.js          — zod env validation, single source of truth for all config
+src/middleware/correlationId.js — UUID per request, attached to req and response header
+src/middleware/rateLimiter.js   — general (100/15min) + auth (10/15min), Redis-backed
+src/migrate.js               — runs all migrations in order, safe to run repeatedly
+docs/architecture.md         — system design decisions explained in plain English
+Dockerfile                   — multi-stage build, node:20-alpine, production-ready
+.github/workflows/ci.yml     — runs 22 tests on every push to main
+README.md                    — full project documentation
+
+### Key decisions
+- Winston replaces console.log — structured JSON logging in production
+- Correlation ID is first middleware — every log line includes the request UUID
+- Zod validates all env vars at startup — app crashes immediately if misconfigured
+- config/index.js is the only place process.env is read — everything else imports config
+- Graceful shutdown handles SIGTERM + SIGINT — closes HTTP, pool, Redis in order
+- 10 second forced exit timeout prevents hanging on stuck requests
+- Multi-stage Dockerfile — builder stage has devDeps, production stage omits them
+- CMD uses exec form ["node", "src/server.js"] so Node receives OS signals directly
+- NODE_ENV=test disables rate limiting and points to order_management_test database
+- Stop npm run dev before running npm test — both compete for DB connections
+
+### Test database
+Name: order_management_test
+Same container as dev, all 6 migrations applied
+Run: npm test (uses tests/env.js to set NODE_ENV and DB_NAME)
+
+### CI
+GitHub Actions — .github/workflows/ci.yml
+Passes: 22 tests across auth, products, cart, orders test suites
