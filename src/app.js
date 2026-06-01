@@ -11,6 +11,8 @@ const cartRoutes = require('./routes/cartRoutes');
 const addressRoutes = require('./routes/addressRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const userRoutes = require('./routes/userRoutes');
+const { generalLimiter, authLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
 
@@ -38,6 +40,13 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 // ── Request logging ──────────────────────────────────────────────
 app.use(requestLogger);
 
+// ── Rate limiting ─────────────────────────────────────────────────
+// General limiter applied to all routes
+app.use(generalLimiter);
+
+// Stricter limiter applied only to auth endpoints
+app.use('/api/auth', authLimiter);
+
 // ── Routes ───────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
   try {
@@ -54,6 +63,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/users', userRoutes);
 
 // ── 404 handler ──────────────────────────────────────────────────
 app.use((req, res) => {

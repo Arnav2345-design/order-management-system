@@ -1,3 +1,5 @@
+// src/controllers/authController.js
+
 const authService = require('../services/authService');
 
 async function register(req, res, next) {
@@ -34,4 +36,16 @@ async function login(req, res, next) {
   }
 }
 
-module.exports = { register, login };
+async function logout(req, res, next) {
+  try {
+    // req.jti was attached by authenticate middleware
+    // It's the unique ID of the token being used right now
+    await authService.logout(req.jti);
+
+    res.status(200).json({ status: 'success', message: 'Logged out successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, logout };
