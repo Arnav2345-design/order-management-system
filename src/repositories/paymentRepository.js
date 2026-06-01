@@ -79,11 +79,39 @@ async function markFailed(id) {
   );
   return result.rows[0] || null;
 }
+/**
+ * Find a payment by Razorpay's payment ID (gateway_payment_id).
+ * Used in webhook processing — after capture, Razorpay sends its own
+ * payment ID. We look up whether we've already processed it.
+ */
+async function findByGatewayPaymentId(gatewayPaymentId) {
+  const result = await db.query(
+    'SELECT * FROM payments WHERE gateway_payment_id = $1',
+    [gatewayPaymentId]
+  );
+  return result.rows[0] || null;
+}
 
+/**
+ * Find a payment by Razorpay's order ID (gateway_order_id).
+ * Used in webhook processing — at the time the webhook arrives,
+ * gateway_payment_id may not be set yet (it's set after capture).
+ * But gateway_order_id was stored during initiation, so we use that
+ * to find the pending payment record.
+ */
+async function findByGatewayOrderId(gatewayOrderId) {
+  const result = await db.query(
+    'SELECT * FROM payments WHERE gateway_order_id = $1',
+    [gatewayOrderId]
+  );
+  return result.rows[0] || null;
+}
 module.exports = {
   create,
   findByOrderId,
   findById,
   markCompleted,
   markFailed,
+  findByGatewayPaymentId,
+  findByGatewayOrderId,
 };

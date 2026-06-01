@@ -201,5 +201,124 @@ async function getPaymentByOrderId(userId, orderId) {
 
   return payment;
 }
+/**
+ * Process a Razorpay webhook event.
+ *
+ * Two responsibilities:
+ *   1. Verify the HMAC signature — proves the request is genuinely from Razorpay
+ *   2. Idempotently update payment + order status — safe to run multiple times
+ */
+ async function processWebhook(rawBody, signature) {
+ 
+  // ── Step 1: Verify signature ──────────────────────────────────────────────
+  // Razorpay signs every webhook payload with your webhook secret.
+  // We recompute the signature and compare — if they match, it's genuine.
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-module.exports = { initiatePayment, verifyPayment, getPaymentByOrderId };
+  const expectedSignature = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(rawBody)        // rawBody is the Buffer from req.rawBody
+    .digest('hex');
+
+  // timingSafeEqual prevents timing attacks — same reason as in verifyPayment
+  const sigBuffer      = Buffer.from(signature, 'hex');
+  const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+  if (sigBuffer.length !== expectedBuffer.length) {
+    throw new AppError('Invalid webhook signature', 400);
+  }
+
+  if (!crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+    throw new AppError('Invalid webhook signature', 400);
+  }
+
+  // ── Step 2: Parse the event ───────────────────────────────────────────────
+  // rawBody is a Buffer — convert to string then parse as JSON
+  const event = JSON.parse(rawBody.toString());
+
+  // We only handle payment.captured for now.
+  // Returning early for other event types is correct — it tells Razorpay
+  // we received the event successfully, so it stops retrying.
+  if (event.event !== 'payment.captured') {
+    return { received: true, processed: false };
+  }
+
+  // ── Step 3: Extract identifiers from the event payload ───────────────────
+  const razorpayPaymentId = event.payload.payment.entity.id;
+
+  // ── Step 4: Idempotency check ─────────────────────────────────────────────
+  // Look up the payment by Razorpay's payment ID.
+  // We use gateway_payment_id here, not our internal UUID, because
+  // Razorpay only knows its own IDs — not ours.
+  const existingPayment = await paymentRepository.findByGatewayPaymentId(
+    razorpayPaymentId
+  );
+
+  // If we don't recognise this payment ID at all, return 200 silently.
+  // Could be a test event or from a different environment.
+  if (!existingPayment) {
+    // Check by gateway_order_id instead — during initiation we stored
+    // the razorpay order id in gateway_order_id, but gateway_payment_id
+    // is only filled after capture. So look up via gateway_order_id.
+    const razorpayOrderId = event.payload.payment.entity.order_id;
+    const pendingPayment = await paymentRepository.findByGatewayOrderId(
+      razorpayOrderId
+    );
+
+    if (!pendingPayment) {
+      return { received: true, processed: false };
+    }
+
+    // Already completed — idempotent return
+    if (pendingPayment.status === 'completed') {
+      return { received: true, processed: false, reason: 'already_processed' };
+    }
+
+    // ── Step 5: Update payment + order in a transaction ───────────────────
+    const pool = require('../config/database');
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `UPDATE payments
+         SET status = 'completed',
+             gateway_payment_id = $1,
+             metadata = $2,
+             updated_at = NOW()
+         WHERE id = $3`,
+        [
+          razorpayPaymentId,
+          JSON.stringify(event.payload.payment.entity),
+          pendingPayment.id,
+        ]
+      );
+
+      await client.query(
+        `UPDATE orders
+         SET status = 'confirmed',
+             updated_at = NOW()
+         WHERE id = $1`,
+        [pendingPayment.order_id]
+      );
+
+      await client.query('COMMIT');
+      return { received: true, processed: true };
+
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Payment found by gateway_payment_id — already processed
+  if (existingPayment.status === 'completed') {
+    return { received: true, processed: false, reason: 'already_processed' };
+  }
+
+  return { received: true, processed: false };
+}
+module.exports = { initiatePayment, verifyPayment, getPaymentByOrderId, processWebhook };

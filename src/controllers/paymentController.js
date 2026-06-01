@@ -62,5 +62,28 @@ async function getPaymentByOrderId(req, res, next) {
     next(err);
   }
 }
+async function handleWebhook(req, res, next) {
+  try {
+    const signature = req.headers['x-razorpay-signature'];
 
-module.exports = { initiatePayment, verifyPayment, getPaymentByOrderId };
+    if (!signature) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Missing x-razorpay-signature header',
+      });
+    }
+
+    // req.rawBody is the raw Buffer captured in app.js
+    // We pass it to the service for HMAC verification
+    const result = await paymentService.processWebhook(req.rawBody, signature);
+
+    // Always return 200 to Razorpay — if we return 4xx/5xx,
+    // Razorpay will keep retrying the webhook indefinitely
+    res.status(200).json({ status: 'ok', ...result });
+  } catch (err) {
+    // AppError with 400 (bad signature) will be handled by errorHandler
+    // and return the right status code to Razorpay
+    next(err);
+  }
+}
+module.exports = { initiatePayment, verifyPayment, getPaymentByOrderId, handleWebhook };

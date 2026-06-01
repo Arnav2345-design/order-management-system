@@ -23,7 +23,16 @@ app.use(cors({
 }));
 
 // ── Body parsing ─────────────────────────────────────────────────
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({
+  limit: '10kb',
+  verify: (req, res, buf) => {
+    // buf is the raw Buffer (bytes) before JSON parsing.
+    // We attach it to req so the webhook handler can use it
+    // for HMAC signature verification.
+    // Every request gets this, but only the webhook route uses it.
+    req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // ── Request logging ──────────────────────────────────────────────
