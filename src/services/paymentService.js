@@ -103,7 +103,7 @@ async function initiatePayment(userId, { orderId, method }) {
   return {
     payment,
     razorpayOrderId: razorpayOrder.id,
-    razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+    razorpayKeyId: config.razorpay.keyId,
     amount: amountInPaise,
     currency: 'INR',
   };
@@ -149,7 +149,7 @@ async function verifyPayment(userId, {
   const body = razorpayOrderId + '|' + razorpayPaymentId;
 
   const expectedSignature = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+    .createHmac('sha256', config.razorpay.keySecret )
     // createHmac creates a Hash-based Message Authentication Code
     // 'sha256' is the hashing algorithm
     // our secret key is used to sign it
@@ -213,7 +213,7 @@ async function getPaymentByOrderId(userId, orderId) {
   // ── Step 1: Verify signature ──────────────────────────────────────────────
   // Razorpay signs every webhook payload with your webhook secret.
   // We recompute the signature and compare — if they match, it's genuine.
-  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  const webhookSecret =config.razorpay.webhookSecret ;
 
   const expectedSignature = crypto
     .createHmac('sha256', webhookSecret)

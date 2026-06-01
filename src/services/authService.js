@@ -11,13 +11,15 @@ const redis = require('../config/redis');
 // This is what we store in Redis as the session handle.
 // When we want to invalidate a token, we delete its jti from Redis.
 function generateToken(userId) {
-  // crypto.randomUUID() generates a UUID v4 — guaranteed unique per token
+  const config = require('../config');
+
+  // Generate a unique ID for this token
   const jti = crypto.randomUUID();
 
   const token = jwt.sign(
-    { userId, jti },         // jti is now part of the payload
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
+    { userId, jti },
+    config.jwt.secret,
+    { expiresIn: config.jwt.expiresIn }
   );
 
   return { token, jti };

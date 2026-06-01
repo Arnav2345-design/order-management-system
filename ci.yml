@@ -1,0 +1,93 @@
+# This workflow runs on every push and pull request to main.
+# It spins up PostgreSQL and Redis as service containers,
+# installs dependencies, and runs the test suite.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Service containers run alongside the job.
+    # They're available at localhost from within the job steps.
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: order_management_test
+        ports:
+          - 5432:5432
+        # Wait until PostgreSQL is ready before running tests
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # Step 1: Check out the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # Cache node_modules between runs — speeds up subsequent runs
+          cache: 'npm'
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # Step 4: Run database migrations against the test database
+      - name: Run migrations
+        env:
+          PGPASSWORD: postgres
+        run: |
+          for f in src/migrations/*.sql; do
+            psql -h localhost -U postgres -d order_management_test -f "$f"
+          done
+
+      # Step 5: Run tests
+      # All required environment variables are set here.
+      # In GitHub Actions, secrets can be stored in repository settings
+      # and referenced as ${{ secrets.SECRET_NAME }}.
+      # For CI we use dummy values for Razorpay since we don't test
+      # actual payment flows.
+      - name: Run tests
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: order_management_test
+          JWT_SECRET: test-secret-key-minimum-32-characters-long
+          JWT_EXPIRES_IN: 7d
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          RAZORPAY_KEY_ID: test_key_id
+          RAZORPAY_KEY_SECRET: test_key_secret
+          RAZORPAY_WEBHOOK_SECRET: test_webhook_secret
+          CORS_ORIGIN: http://localhost:3000
+        run: npm test

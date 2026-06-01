@@ -1,20 +1,35 @@
+// src/middleware/errorHandler.js
+
+const logger = require('../config/logger');
+
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || err.status || 500;
 
-  const response = {
-    error: {
-      message: err.message || 'Internal Server Error',
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-    },
-  };
+  // Use winston instead of console.error
+  // 500+ errors are server faults — log at error level with full stack
+  // 400-499 errors are client faults — log at warn level, stack not needed
+  const level = statusCode >= 500 ? 'error' : 'warn';
 
-  console.error(`[ERROR] ${req.method} ${req.url}`, {
+  logger[level](`${req.method} ${req.url}`, {
+    correlationId: req.correlationId,
     statusCode,
-    message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    message:       err.message,
+    // Only include stack trace in non-production environments
+    stack:         process.env.NODE_ENV !== 'production' ? err.stack : undefined,
+    // Include userId if available — helps trace which user hit the error
+    userId:        req.user?.id || null,
   });
 
-  res.status(statusCode).json(response);
+  res.status(statusCode).json({
+    error: {
+      message: err.message || 'Internal Server Error',
+      // Expose stack trace only in development
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+      // Always include correlationId in error responses —
+      // the caller can send it to support to look up exactly what went wrong
+      correlationId: req.correlationId,
+    },
+  });
 };
 
 module.exports = errorHandler;

@@ -1,3 +1,4 @@
+//src/app.js
 require('dotenv').config();
 const express = require('express');
 const helmet = require('helmet');
@@ -13,14 +14,22 @@ const orderRoutes = require('./routes/orderRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const userRoutes = require('./routes/userRoutes');
 const { generalLimiter, authLimiter } = require('./middleware/rateLimiter');
+const correlationId = require('./middleware/correlationId');
 
 const app = express();
+
+// ── Correlation ID ───────────────────────────────────────────────
+// Must be first — every subsequent middleware and log line needs it
+app.use(correlationId);
+
 
 // ── Security middleware ──────────────────────────────────────────
 app.use(helmet());
 
+const config = require('./config');
+// ...
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: config.cors.origin,
   credentials: true,
 }));
 

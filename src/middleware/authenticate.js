@@ -15,7 +15,9 @@ async function authenticate(req, res, next) {
     const token = authHeader.split(' ')[1];
 
     // Step 1: Verify the JWT signature — same as before
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const config = require('../config');
+// ...
+    const decoded = jwt.verify(token, config.jwt.secret);
 
     // Step 2: Check the session exists in Redis
     // decoded.jti is the unique token ID we stored in the payload
