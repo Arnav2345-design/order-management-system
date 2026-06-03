@@ -16,6 +16,8 @@ A production-grade REST API for e-commerce order management, built as a
 - Graceful shutdown
 - Environment validation at startup
 - Integration test suite (22 tests)
+- Request body validation with field-level error messages (Zod)
+- HTTP security headers (CSP, HSTS, noSniff, frameguard)
 
 ## Tech Stack
 
@@ -131,6 +133,21 @@ Stop `npm run dev` before running tests.
 
 ## API Reference
 
+All endpoints that accept a request body validate it with Zod schemas.
+Invalid requests return `400` with field-level error details:
+
+```json
+{
+  "error": {
+    "message": "Validation failed",
+    "fields": [
+      { "field": "email", "message": "Must be a valid email address" },
+      { "field": "password", "message": "Password must be at least 8 characters" }
+    ]
+  }
+}
+```
+
 ### Authentication
 
 | Method | Endpoint | Auth | Description |
@@ -183,6 +200,7 @@ Stop `npm run dev` before running tests.
 | GET | /api/users/profile | Yes | Get profile |
 | PATCH | /api/users/profile | Yes | Update profile |
 | PATCH | /api/users/profile/password | Yes | Change password |
+
 
 ## CI/CD
 

@@ -154,3 +154,38 @@ On SIGTERM (sent by Docker/Railway on deploy) or SIGINT (Ctrl+C):
 
 A 10-second timeout forces exit if shutdown hangs — prevents the process
 from blocking indefinitely during rolling deploys.
+
+## Input Validation
+
+All request bodies are validated at the route layer using Zod schemas
+before reaching controllers or services. This means:
+
+- Invalid requests are rejected immediately with field-level error messages
+- Unknown fields are stripped — attackers cannot inject extra fields
+- Type coercion happens at the boundary — strings are converted to numbers
+  where needed, emails are normalised to lowercase
+
+Validation middleware sits between the route and controller:
+
+If validation fails, the request never reaches business logic.
+
+### Why validate at the route layer and not the service layer?
+
+Service layer validation would work but returns generic errors. Route layer
+validation with Zod returns field-specific errors ("email must be a valid
+email address") that clients can display directly to users. Services still
+contain business logic validation (e.g. "cart must not be empty") — these
+are different concerns.
+
+## HTTP Security Headers
+
+Helmet is configured with:
+
+- **Content Security Policy** — tells browsers which sources are trusted.
+  Blocks inline scripts and unknown origins, preventing XSS attacks.
+- **HSTS** — forces HTTPS in production. Browsers will refuse to connect
+  over HTTP for 1 year after the first HTTPS visit.
+- **noSniff** — prevents browsers from MIME-sniffing. Forces them to
+  respect the Content-Type header, preventing content injection.
+- **frameguard** — prevents the app from being embedded in iframes.
+  Blocks clickjacking attacks where an attacker overlays your UI.
