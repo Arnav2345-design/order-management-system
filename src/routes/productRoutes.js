@@ -3,14 +3,30 @@ const router = express.Router();
 const productController = require('../controllers/productController');
 const authenticate = require('../middleware/authenticate');
 const authorize = require('../middleware/authorize');
+const validate = require('../middleware/validate');
+const { createProductSchema, updateProductSchema } = require('../validators/productValidator');
 
-// Public routes — no token needed
 router.get('/', productController.getAllProducts);
 router.get('/:id', productController.getProductById);
 
-// Admin only routes — token + admin role required
-router.post('/', authenticate, authorize('admin'), productController.createProduct);
-router.put('/:id', authenticate, authorize('admin'), productController.updateProduct);
-router.delete('/:id', authenticate, authorize('admin'), productController.deleteProduct);
+router.post('/',
+  authenticate,
+  authorize('admin'),
+  validate(createProductSchema),
+  productController.createProduct
+);
+
+router.put('/:id',
+  authenticate,
+  authorize('admin'),
+  validate(updateProductSchema),
+  productController.updateProduct
+);
+
+router.delete('/:id',
+  authenticate,
+  authorize('admin'),
+  productController.deleteProduct
+);
 
 module.exports = router;

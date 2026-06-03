@@ -4,18 +4,16 @@ const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/paymentController');
 const authenticate = require('../middleware/authenticate');
+const validate = require('../middleware/validate');
+const { initiatePaymentSchema, verifyPaymentSchema } = require('../validators/paymentValidator');
 
-// ── Webhook route — no auth ───────────────────────────────────────────────
-// Must be defined BEFORE router.use(authenticate).
-// Razorpay is an external server — it has no JWT.
-// Security is handled inside the service via HMAC signature verification.
+// Webhook — no auth, no body validation (raw body needed for HMAC)
 router.post('/webhook', paymentController.handleWebhook);
 
-// ── All other payment routes require authentication ───────────────────────
 router.use(authenticate);
 
-router.post('/initiate', paymentController.initiatePayment);
-router.post('/verify', paymentController.verifyPayment);
+router.post('/initiate', validate(initiatePaymentSchema), paymentController.initiatePayment);
+router.post('/verify', validate(verifyPaymentSchema), paymentController.verifyPayment);
 router.get('/order/:orderId', paymentController.getPaymentByOrderId);
 
 module.exports = router;

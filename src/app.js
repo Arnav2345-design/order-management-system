@@ -24,7 +24,34 @@ app.use(correlationId);
 
 
 // ── Security middleware ──────────────────────────────────────────
-app.use(helmet());
+// ── Security middleware ──────────────────────────────────────────
+app.use(helmet({
+  // Content Security Policy — tells browsers which sources are trusted
+  // Prevents XSS attacks by blocking inline scripts and unknown origins
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'"],
+      styleSrc:   ["'self'"],
+      imgSrc:     ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      fontSrc:    ["'self'"],
+      objectSrc:  ["'none'"],
+      frameSrc:   ["'none'"],
+    },
+  },
+  // Prevents browsers from MIME-sniffing — forces them to respect
+  // the Content-Type header, preventing content injection attacks
+  noSniff: true,
+  // Forces HTTPS — tells browsers to only connect via HTTPS for 1 year
+  // Only enable in production — would break local HTTP development
+  hsts: process.env.NODE_ENV === 'production'
+    ? { maxAge: 31536000, includeSubDomains: true }
+    : false,
+  // Prevents your app from being embedded in iframes
+  // Protects against clickjacking attacks
+  frameguard: { action: 'deny' },
+}));
 
 const config = require('./config');
 // ...
