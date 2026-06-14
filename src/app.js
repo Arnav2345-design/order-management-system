@@ -13,8 +13,9 @@ const addressRoutes = require('./routes/addressRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const userRoutes = require('./routes/userRoutes');
-const { generalLimiter, authLimiter } = require('./middleware/rateLimiter');
+const { generalLimiter, authLimiter, orderLimiter } = require('./middleware/rateLimiter');
 const correlationId = require('./middleware/correlationId');
+const config = require('./config');
 
 const app = express();
 
@@ -22,8 +23,6 @@ const app = express();
 // Must be first — every subsequent middleware and log line needs it
 app.use(correlationId);
 
-
-// ── Security middleware ──────────────────────────────────────────
 // ── Security middleware ──────────────────────────────────────────
 app.use(helmet({
   // Content Security Policy — tells browsers which sources are trusted
@@ -45,7 +44,7 @@ app.use(helmet({
   noSniff: true,
   // Forces HTTPS — tells browsers to only connect via HTTPS for 1 year
   // Only enable in production — would break local HTTP development
-  hsts: process.env.NODE_ENV === 'production'
+  hsts: config.nodeEnv === 'production'
     ? { maxAge: 31536000, includeSubDomains: true }
     : false,
   // Prevents your app from being embedded in iframes
@@ -53,8 +52,6 @@ app.use(helmet({
   frameguard: { action: 'deny' },
 }));
 
-const config = require('./config');
-// ...
 app.use(cors({
   origin: config.cors.origin,
   credentials: true,

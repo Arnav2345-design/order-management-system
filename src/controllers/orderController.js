@@ -22,8 +22,11 @@ async function placeOrder(req, res, next) {
 
 async function getMyOrders(req, res, next) {
   try {
-    const orders = await orderService.getMyOrders(req.user.id);
-    res.status(200).json({ status: 'success', data: { orders } });
+    // req.validatedQuery.page and .limit are already validated, coerced
+    // to numbers, and defaulted by the validateQuery middleware.
+    const { page, limit } = req.validatedQuery;
+    const { orders, pagination } = await orderService.getMyOrders(req.user.id, { page, limit });
+    res.status(200).json({ status: 'success', data: { orders, pagination } });
   } catch (err) {
     next(err);
   }

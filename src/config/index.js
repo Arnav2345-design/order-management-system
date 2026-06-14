@@ -36,6 +36,16 @@ const schema = z.object({
 
   // CORS
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+
+  // Order pricing
+  // z.coerce.number() converts the string from .env (e.g. "0.18") into
+  // an actual JS number, so we can do math with it directly.
+  ORDER_TAX_RATE:     z.coerce.number().min(0).default(0.18),
+  ORDER_SHIPPING_COST: z.coerce.number().min(0).default(50.00),
+
+  // Pagination
+  PAGINATION_DEFAULT_LIMIT: z.coerce.number().int().positive().default(20),
+  PAGINATION_MAX_LIMIT:     z.coerce.number().int().positive().default(100),
 });
 
 // ── Validate process.env against the schema ───────────────────────
@@ -89,5 +99,15 @@ module.exports = {
 
   cors: {
     origin: env.CORS_ORIGIN,
+  },
+
+  order: {
+    taxRate:      env.ORDER_TAX_RATE,
+    shippingCost: env.ORDER_SHIPPING_COST,
+  },
+
+  pagination: {
+    defaultLimit: env.PAGINATION_DEFAULT_LIMIT,
+    maxLimit:     env.PAGINATION_MAX_LIMIT,
   },
 };

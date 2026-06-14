@@ -1,6 +1,7 @@
 // src/middleware/errorHandler.js
 
 const logger = require('../config/logger');
+const config = require('../config');
 
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || err.status || 500;
@@ -15,7 +16,7 @@ const errorHandler = (err, req, res, next) => {
     statusCode,
     message:       err.message,
     // Only include stack trace in non-production environments
-    stack:         process.env.NODE_ENV !== 'production' ? err.stack : undefined,
+    stack:         config.nodeEnv !== 'production' ? err.stack : undefined,
     // Include userId if available — helps trace which user hit the error
     userId:        req.user?.id || null,
   });
@@ -24,7 +25,7 @@ const errorHandler = (err, req, res, next) => {
     error: {
       message: err.message || 'Internal Server Error',
       // Expose stack trace only in development
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+      ...(config.nodeEnv === 'development' && { stack: err.stack }),
       // Always include correlationId in error responses —
       // the caller can send it to support to look up exactly what went wrong
       correlationId: req.correlationId,

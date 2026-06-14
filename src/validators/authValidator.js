@@ -1,17 +1,20 @@
 // src/validators/authValidator.js
 
 const { z } = require('zod');
+const { stripHtml } = require('../utils/sanitize');
 
 const registerSchema = z.object({
   firstName: z.string()
     .min(1, 'First name is required')
     .max(100, 'First name must be under 100 characters')
-    .trim(),
+    .trim()
+    .transform(stripHtml),
 
   lastName: z.string()
     .min(1, 'Last name is required')
     .max(100, 'Last name must be under 100 characters')
-    .trim(),
+    .trim()
+    .transform(stripHtml),
 
   email: z.string()
     .email('Must be a valid email address')

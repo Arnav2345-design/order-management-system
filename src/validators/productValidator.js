@@ -1,16 +1,19 @@
 // src/validators/productValidator.js
 
 const { z } = require('zod');
+const { stripHtml } = require('../utils/sanitize');
 
 const createProductSchema = z.object({
   name: z.string()
     .min(1, 'Product name is required')
     .max(255, 'Name must be under 255 characters')
-    .trim(),
+    .trim()
+    .transform(stripHtml),
 
   description: z.string()
     .max(2000, 'Description must be under 2000 characters')
     .trim()
+    .transform(stripHtml)
     .optional(),
 
   // coerce converts the string "99.99" to the number 99.99

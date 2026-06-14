@@ -3,18 +3,36 @@
 const db = require('../config/database');
 
 /**
- * Find all orders for a specific user, most recent first.
+ * Find one "page" of orders for a specific user, most recent first.
  * We don't JOIN order_items here — we keep this query light.
  * Full order details (with items) come from findById.
+ *
+ * LIMIT controls how many rows come back.
+ * OFFSET controls how many rows to skip before starting to return rows
+ * — e.g. page 2 with limit 20 means OFFSET 20 (skip the first 20).
  */
-async function findAllByUserId(userId) {
+async function findAllByUserId(userId, { limit, offset }) {
   const result = await db.query(
-    `SELECT * FROM orders 
-     WHERE user_id = $1 
-     ORDER BY created_at DESC`,
-    [userId]
+    `SELECT * FROM orders
+     WHERE user_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [userId, limit, offset]
   );
   return result.rows;
+}
+
+/**
+ * Count how many orders a user has in total (ignoring pagination).
+ * Used to calculate how many pages of results exist.
+ */
+async function countByUserId(userId) {
+  const result = await db.query(
+    `SELECT COUNT(*) FROM orders WHERE user_id = $1`,
+    [userId]
+  );
+  // COUNT(*) comes back as a string (e.g. "42"), so we convert it to a number.
+  return parseInt(result.rows[0].count, 10);
 }
 
 /**
@@ -175,6 +193,7 @@ async function updateStatus(orderId, status) {
 
 module.exports = {
   findAllByUserId,
+  countByUserId,
   findById,
   createWithItems,
   updateStatus,

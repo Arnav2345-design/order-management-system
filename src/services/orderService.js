@@ -5,11 +5,8 @@ const addressRepository = require('../repositories/addressRepository');
 const cartRepository = require('../repositories/cartRepository');
 const productRepository = require('../repositories/productRepository');
 const AppError = require('../utils/AppError');
-
-// Tax rate: 18% GST (standard in India)
-const TAX_RATE = 0.18;
-// Flat shipping cost for simplicity
-const SHIPPING_COST = 50.00;
+const config = require('../config');
+const { ORDER_STATUSES } = require('../utils/constants');
 
 /**
  * Place an order from the current user's cart.
@@ -66,8 +63,8 @@ async function placeOrder(userId, { addressId, notes }) {
     return sum + (parseFloat(item.product_price) * item.quantity);
   }, 0);
 
-  const tax = parseFloat((subtotal * TAX_RATE).toFixed(2));
-  const shippingCost = SHIPPING_COST;
+  const tax = parseFloat((subtotal * config.order.taxRate).toFixed(2));
+  const shippingCost = config.order.shippingCost;
   const total = parseFloat((subtotal + tax + shippingCost).toFixed(2));
 
   // ── Rule 5: Create the order in a transaction ─────────────────────────────
@@ -90,10 +87,33 @@ async function placeOrder(userId, { addressId, notes }) {
 }
 
 /**
- * Get all orders for the current user.
+ * Get one page of orders for the current user, plus pagination metadata.
+ *
+ * "offset" is how many rows the database should skip before it starts
+ * returning results. Page 1 skips nothing (offset 0). Page 2 skips the
+ * first `limit` rows. The formula is: offset = (page - 1) * limit.
+ *
+ * "totalPages" tells the frontend how many "Next" clicks are possible.
+ * Math.ceil rounds UP — e.g. 41 orders at 20 per page = 2.05 → 3 pages,
+ * because that 41st order still needs a page to live on.
  */
-async function getMyOrders(userId) {
-  return orderRepository.findAllByUserId(userId);
+async function getMyOrders(userId, { page, limit }) {
+  const offset = (page - 1) * limit;
+
+  const [orders, total] = await Promise.all([
+    orderRepository.findAllByUserId(userId, { limit, offset }),
+    orderRepository.countByUserId(userId),
+  ]);
+
+  return {
+    orders,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 }
 
 /**
@@ -121,14 +141,9 @@ async function getOrderById(userId, orderId, userRole) {
  */
 async function updateOrderStatus(orderId, status) {
   // Validate that the status is one of the allowed enum values
-  const validStatuses = [
-    'pending', 'confirmed', 'processing',
-    'shipped', 'delivered', 'cancelled', 'refunded'
-  ];
-
-  if (!validStatuses.includes(status)) {
+  if (!ORDER_STATUSES.includes(status)) {
     throw new AppError(
-      `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      `Invalid status. Must be one of: ${ORDER_STATUSES.join(', ')}`,
       400
     );
   }
